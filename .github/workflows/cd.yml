@@ -1,0 +1,211 @@
+name: Continuous Deployment
+
+on:
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
+    branches: [main, 'release/*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: true
+        type: string
+        pattern: '^v\d+\.\d+\.\d+$'
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPOSITORY: mint-clone
+  NODE_ENV: production
+  DATADOG_ENV: ${{ github.event.inputs.environment || 'staging' }}
+
+jobs:
+  deploy_staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event.inputs.environment == 'staging' }}
+    environment:
+      name: staging
+      url: https://staging.mint-clone.com
+    concurrency: staging_environment
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Download CI artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: production-builds
+          path: artifacts
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_STAGING }}
+          role-duration-seconds: 1800
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+        id: ecr-login
+
+      - name: Generate Kubernetes manifests
+        run: |
+          VERSION="${{ github.event.inputs.version || github.sha }}"
+          envsubst < k8s/staging/* > k8s/staging/generated/
+
+      - name: Deploy to EKS (Canary)
+        uses: azure/k8s-deploy@v4
+        with:
+          manifests: k8s/staging/generated/
+          namespace: staging
+          strategy: canary
+          percentage: 30
+          traffic-split-method: pod
+          action: deploy
+          kubeconfig: ${{ secrets.KUBECONFIG_STAGING }}
+
+      - name: Run integration tests
+        run: |
+          npm ci
+          npm run test:integration
+        env:
+          API_URL: https://staging.mint-clone.com
+          TEST_TIMEOUT: 300000
+
+      - name: Monitor deployment health
+        run: |
+          curl -X POST ${DATADOG_API_ENDPOINT}/v1/series \
+            -H "DD-API-KEY: ${DATADOG_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d @- << EOF
+            {
+              "series": [{
+                "metric": "deployment.health",
+                "points": [[$(date +%s), 1]],
+                "tags": ["env:staging", "version:${VERSION}"]
+              }]
+            }
+          EOF
+        env:
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DATADOG_API_ENDPOINT: https://api.datadoghq.com/api/v1/series
+
+      - name: Promote canary to full deployment
+        if: success()
+        uses: azure/k8s-deploy@v4
+        with:
+          manifests: k8s/staging/generated/
+          namespace: staging
+          strategy: canary
+          percentage: 100
+          action: promote
+          kubeconfig: ${{ secrets.KUBECONFIG_STAGING }}
+
+  deploy_production:
+    name: Deploy to Production
+    needs: deploy_staging
+    if: |
+      needs.deploy_staging.result == 'success' && 
+      (github.event.inputs.environment == 'production' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://mint-clone.com
+    concurrency: production_environment
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
+          role-duration-seconds: 1800
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Generate Kubernetes manifests
+        run: |
+          VERSION="${{ github.event.inputs.version || github.sha }}"
+          envsubst < k8s/production/* > k8s/production/generated/
+
+      - name: Deploy to EKS (Blue-Green)
+        uses: azure/k8s-deploy@v4
+        with:
+          manifests: k8s/production/generated/
+          namespace: production
+          strategy: blue-green
+          action: deploy
+          kubeconfig: ${{ secrets.KUBECONFIG_PROD }}
+
+      - name: Execute smoke tests
+        run: |
+          npm ci
+          npm run test:smoke
+        env:
+          API_URL: https://mint-clone.com
+          TEST_TIMEOUT: 300000
+
+      - name: Monitor production metrics
+        run: |
+          for i in {1..10}; do
+            curl -X POST ${DATADOG_API_ENDPOINT}/v1/series \
+              -H "DD-API-KEY: ${DATADOG_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d @- << EOF
+              {
+                "series": [{
+                  "metric": "deployment.health",
+                  "points": [[$(date +%s), 1]],
+                  "tags": ["env:production", "version:${VERSION}"]
+                }]
+              }
+            EOF
+            sleep 30
+          done
+        env:
+          DATADOG_API_KEY: ${{ secrets.DATADOG_API_KEY }}
+          DATADOG_API_ENDPOINT: https://api.datadoghq.com/api/v1/series
+
+      - name: Update DNS records
+        if: success()
+        run: |
+          aws route53 change-resource-record-sets \
+            --hosted-zone-id ${{ secrets.DNS_ZONE_ID }} \
+            --change-batch file://dns/production.json
+
+      - name: Notify deployment status
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          fields: repo,message,commit,author,action,eventName,ref,workflow,job,took
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - name: Archive deployment artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: deployment-artifacts
+          path: |
+            k8s/production/generated/
+            logs/
+            metrics/
+          retention-days: 30
