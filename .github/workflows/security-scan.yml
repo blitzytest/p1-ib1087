@@ -1,0 +1,164 @@
+name: Security Scan
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  schedule:
+    - cron: '0 0 * * *'  # Run daily at midnight UTC
+
+env:
+  NODE_VERSION: '18.x'
+  MAX_CRITICAL_VULNERABILITIES: 0
+  MAX_HIGH_VULNERABILITIES: 5
+  MIN_SCAN_COVERAGE: 95
+
+jobs:
+  code_scanning:
+    name: Static Code Analysis
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
+        with:
+          languages: javascript, typescript
+          queries: security-extended,security-and-quality
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v2
+        with:
+          category: "/language:javascript"
+          upload: true
+          output: sarif-results
+
+  dependency_scanning:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Backend Dependencies Scan
+        uses: snyk/actions/node@v0.4.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: >
+            --all-projects 
+            --severity-threshold=high 
+            --fail-on=upgradable 
+            --policy-path=.snyk
+            --org=${{ secrets.SNYK_ORG }}
+            --project-name=mint-clone-backend
+
+      - name: Mobile App Dependencies Scan
+        uses: snyk/actions/node@v0.4.0
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: test
+          args: >
+            --file=mobile/package.json
+            --severity-threshold=high
+            --fail-on=upgradable
+            --policy-path=.snyk
+            --org=${{ secrets.SNYK_ORG }}
+            --project-name=mint-clone-mobile
+
+  container_scanning:
+    name: Container Security Scan
+    runs-on: ubuntu-latest
+    needs: [dependency_scanning]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.10.0
+        with:
+          scan-type: 'fs,vuln'
+          ignore-unfixed: true
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '1'
+          vuln-type: 'os,library'
+          security-checks: 'vuln,config,secret'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: container-security
+
+  secret_scanning:
+    name: Secret Detection
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+  security_report:
+    name: Generate Security Report
+    runs-on: ubuntu-latest
+    needs: [code_scanning, dependency_scanning, container_scanning, secret_scanning]
+    if: always()
+    
+    steps:
+      - name: Generate timestamp
+        id: timestamp
+        run: echo "::set-output name=timestamp::$(date +'%Y-%m-%d_%H-%M-%S')"
+
+      - name: Compile security report
+        run: |
+          echo "Security Scan Report - ${{ steps.timestamp.outputs.timestamp }}" > security-report.md
+          echo "----------------------------------------" >> security-report.md
+          echo "CodeQL Analysis Status: ${{ needs.code_scanning.result }}" >> security-report.md
+          echo "Dependency Scan Status: ${{ needs.dependency_scanning.result }}" >> security-report.md
+          echo "Container Scan Status: ${{ needs.container_scanning.result }}" >> security-report.md
+          echo "Secret Detection Status: ${{ needs.secret_scanning.result }}" >> security-report.md
+
+      - name: Upload security report
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-report-${{ steps.timestamp.outputs.timestamp }}
+          path: security-report.md
+          retention-days: 90
+
+      - name: Fail if critical issues found
+        if: |
+          needs.code_scanning.result == 'failure' ||
+          needs.dependency_scanning.result == 'failure' ||
+          needs.container_scanning.result == 'failure' ||
+          needs.secret_scanning.result == 'failure'
+        run: |
+          echo "Critical security issues found. Please review the security report."
+          exit 1
