@@ -1,0 +1,98 @@
+MINT CLONE FINANCIAL MANAGEMENT PLATFORM
+PROPRIETARY LICENSE AGREEMENT
+Version 1.0
+
+1. DEFINITIONS
+
+"Software" means the Mint Clone financial management platform software, including all source code, documentation, configuration files, build scripts, infrastructure code, database schemas, API specifications, user interface designs, development tools, and test suites.
+
+"Licensee" means any individual or entity that obtains or uses the Software.
+
+"Licensor" means the owner and copyright holder of the Software.
+
+2. GRANT OF LICENSE
+
+Subject to the terms and conditions of this Agreement, Licensor hereby grants Licensee a non-transferable, non-exclusive license to use the Software solely for internal business purposes.
+
+3. RESTRICTIONS
+
+Licensee shall not:
+a) Modify, adapt, alter, translate, or create derivative works of the Software
+b) Reverse engineer, decompile, disassemble, or attempt to derive source code from the Software
+c) Remove, alter, or obscure any proprietary notices in the Software
+d) Use the Software for any unlawful purpose
+e) Transfer, sublicense, lease, lend, rent or otherwise distribute the Software to any third party
+f) Use the Software in violation of any applicable laws or regulations
+
+4. INTELLECTUAL PROPERTY
+
+4.1 Protected Components
+The following components are proprietary and confidential:
+- Financial data processing algorithms
+- Security implementations
+- API integrations
+- User interface designs
+
+4.2 Third-Party Components
+- Open source usage permitted only under MIT, Apache 2.0, and BSD licenses
+- All third-party attributions must be maintained
+- API integrations must comply with provider terms and security standards
+
+5. COMPLIANCE REQUIREMENTS
+
+5.1 Data Protection & Privacy
+Licensee must comply with:
+- SOC2 security controls and privacy requirements
+- PSD2 authentication and transaction monitoring standards
+- GDPR/CCPA data protection and privacy regulations
+- ISO 27001 information security standards
+- FINRA record keeping and reporting requirements
+
+5.2 Security Requirements
+- Maintain strong authentication mechanisms
+- Implement required encryption protocols
+- Enforce access control systems
+- Maintain comprehensive audit logging
+
+6. WARRANTIES AND DISCLAIMERS
+
+THE SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED. LICENSOR DISCLAIMS ALL WARRANTIES, INCLUDING BUT NOT LIMITED TO MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+7. LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL LICENSOR BE LIABLE FOR ANY SPECIAL, INCIDENTAL, INDIRECT, OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE SOFTWARE.
+
+8. TERM AND TERMINATION
+
+8.1 This Agreement is effective until terminated.
+
+8.2 Termination Rights:
+- Licensor may terminate immediately for serious violations
+- 30-day cure period for remediable violations
+- Written notice required for all violations
+
+8.3 Effect of Termination:
+Upon termination, Licensee must:
+- Cease all use of the Software
+- Destroy all copies of the Software
+- Certify compliance with termination requirements
+
+9. DISPUTE RESOLUTION
+
+Any disputes arising from this Agreement shall be resolved through binding arbitration in accordance with applicable laws.
+
+10. GENERAL PROVISIONS
+
+10.1 Governing Law
+This Agreement shall be governed by and construed in accordance with the laws of [Jurisdiction].
+
+10.2 Entire Agreement
+This Agreement constitutes the entire agreement between the parties concerning the subject matter hereof.
+
+10.3 Severability
+If any provision of this Agreement is held invalid or unenforceable, the remaining provisions shall continue in full force and effect.
+
+By using the Software, Licensee acknowledges that they have read this Agreement, understand it, and agree to be bound by its terms and conditions.
+
+Copyright © 2023 [Organization Name]
+All Rights Reserved
