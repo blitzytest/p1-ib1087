@@ -1,0 +1,65 @@
+# These owners will be the default owners for everything in
+# the repository unless a later match takes precedence
+* @project-leads
+
+# Backend service ownership
+src/backend/**/* @backend-team
+
+# Authentication service requires security team review
+src/backend/auth-service/**/* @security-team @backend-team
+
+# Frontend/Mobile app ownership
+src/web/**/* @frontend-team
+mobile/**/* @frontend-team
+
+# Infrastructure and deployment configuration
+infrastructure/**/* @devops-team
+terraform/**/* @devops-team
+k8s/**/* @devops-team
+
+# CI/CD workflow configurations
+.github/workflows/* @devops-team
+
+# Database migrations require both DB and backend team approval
+src/backend/db/migrations/* @database-team @backend-team
+
+# Test files require QA team review
+src/backend/**/test/**/* @qa-team @backend-team
+src/web/test/**/* @qa-team @frontend-team
+mobile/test/**/* @qa-team @frontend-team
+
+# Security-sensitive areas require security team review
+src/backend/**/security/**/* @security-team
+src/backend/auth-service/src/crypto/**/* @security-team
+src/backend/shared/security/**/* @security-team
+
+# API Gateway configuration
+src/backend/api-gateway/**/* @backend-team @devops-team
+
+# Core service implementations
+src/backend/account-service/**/* @backend-team
+src/backend/transaction-service/**/* @backend-team
+src/backend/budget-service/**/* @backend-team
+src/backend/investment-service/**/* @backend-team
+
+# Shared libraries and utilities
+src/backend/shared/**/* @backend-team
+
+# Documentation ownership
+docs/**/* @project-leads @backend-team @frontend-team
+
+# Package dependencies and lock files
+package.json @devops-team @backend-team
+package-lock.json @devops-team @backend-team
+yarn.lock @devops-team @backend-team
+
+# Configuration files
+.env.example @devops-team
+.eslintrc* @backend-team @frontend-team
+.prettierrc* @backend-team @frontend-team
+tsconfig.json @backend-team @frontend-team
+
+# Docker configurations
+Dockerfile* @devops-team
+docker-compose*.yml @devops-team
+.dockerignore @devops-team
