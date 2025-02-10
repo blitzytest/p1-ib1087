@@ -1,0 +1,188 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  NODE_VERSION: '18.x'
+  COVERAGE_THRESHOLD: '80'
+
+jobs:
+  validate:
+    name: Code Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Cache dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: npm-deps-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: npm-deps-
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint code
+        run: npm run lint
+        env:
+          ESLINT_CONFIG: airbnb-base
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Check formatting
+        run: npm run format -- --check
+
+      - name: Validate package-lock.json
+        run: npm install --package-lock-only
+
+  test:
+    name: Run Tests
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run backend unit tests
+        run: npm run test:coverage
+        env:
+          JEST_COVERAGE_THRESHOLD: ${{ env.COVERAGE_THRESHOLD }}
+          
+      - name: Run backend integration tests
+        run: npm run test:integration
+        timeout-minutes: 10
+
+      - name: Run mobile app tests
+        working-directory: ./mobile
+        run: |
+          npm ci
+          npm run test:coverage
+        env:
+          JEST_COVERAGE_THRESHOLD: ${{ env.COVERAGE_THRESHOLD }}
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-reports
+          path: |
+            coverage/
+            mobile/coverage/
+
+  security_scan:
+    name: Security Scan
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Run Snyk backend scan
+        uses: snyk/actions/node@v3
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+
+      - name: Run Snyk mobile scan
+        uses: snyk/actions/node@v3
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          command: test
+          args: --severity-threshold=high
+          file: ./mobile/package.json
+
+      - name: Generate security report
+        run: |
+          echo "Security scan completed at $(date)" > security-report.txt
+          echo "Vulnerabilities found: ${{ steps.snyk-scan.outputs.vulnerabilities }}" >> security-report.txt
+
+      - name: Upload security report
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-report
+          path: security-report.txt
+
+  build:
+    name: Production Build
+    needs: security_scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build backend services
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Build mobile app (iOS)
+        working-directory: ./mobile
+        run: |
+          npm ci
+          npm run build:ios
+        env:
+          NODE_ENV: production
+
+      - name: Build mobile app (Android)
+        working-directory: ./mobile
+        run: |
+          npm run build:android
+        env:
+          NODE_ENV: production
+
+      - name: Analyze bundle size
+        run: |
+          npx bundlesize
+          echo "Bundle analysis completed"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: production-builds
+          path: |
+            dist/
+            mobile/ios/build/
+            mobile/android/app/build/outputs/apk/release/
+
+      - name: Tag successful build
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git tag v$(node -p "require('./package.json').version")-$(date +%Y%m%d%H%M%S)
+          git push --tags
