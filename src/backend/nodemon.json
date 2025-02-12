@@ -1,0 +1,26 @@
+{
+  "watch": [
+    "src/**/*.ts",
+    "shared/**/*.ts"
+  ],
+  "ext": "ts,json",
+  "exec": "ts-node -r tsconfig-paths/register",
+  "ignore": [
+    "node_modules",
+    "dist", 
+    "coverage",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ],
+  "env": {
+    "NODE_ENV": "development",
+    "TS_NODE_PROJECT": "./tsconfig.json"
+  },
+  "delay": "1000",
+  "verbose": true,
+  "restartable": "rs",
+  "colours": true,
+  "events": {
+    "restart": "osascript -e 'display notification \"App restarted due to changes\" with title \"nodemon\"'"
+  }
+}

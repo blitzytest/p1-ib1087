@@ -1,0 +1,88 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Version control
+.git
+.gitignore
+
+# Build outputs
+android/app/build
+ios/build
+ios/Pods
+dist
+
+# Logs and debugging
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment and secrets
+.env*
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Testing
+coverage
+__tests__
+test
+jest.config.*
+
+# Development configs
+.eslintrc*
+.prettierrc*
+.editorconfig
+.vscode
+.idea
+
+# Documentation
+*.md
+README.md
+CHANGELOG.md
+LICENSE
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose*
+
+# Mobile platform specifics
+android/.gradle
+android/.idea
+android/local.properties
+ios/*.xcworkspace
+ios/*.xcodeproj
+ios/Pods
+ios/Podfile.lock
+
+# IDE and editor
+.vscode
+.idea
+*.swp
+*.swo
+*.swn
+*.bak
+
+# Package management
+yarn.lock
+package-lock.json
+*.lock
+
+# Configuration files
+*.config.js
+babel.config.js
+metro.config.js
+tsconfig.json
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Misc
+.DS_Store
+.tmp
+temp

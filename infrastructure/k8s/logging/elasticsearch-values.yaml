@@ -1,0 +1,120 @@
+# Elasticsearch Helm Values Configuration
+# Version: 8.0.0
+# Purpose: Production deployment configuration for centralized logging and search
+
+# Cluster Configuration
+clusterName: mint-clone-logging
+nodeGroup: master
+masterService: elasticsearch-master
+
+# Node Roles
+roles:
+  master: "true"
+  data: "true"
+  ingest: "true"
+
+# High Availability Settings
+replicas: 3
+minimumMasterNodes: 2
+
+# Container Image
+image:
+  repository: docker.elastic.co/elasticsearch/elasticsearch
+  tag: "8.0.0"
+  pullPolicy: IfNotPresent
+
+# Resource Allocation
+resources:
+  requests:
+    cpu: "1000m"
+    memory: "2Gi"
+  limits:
+    cpu: "2000m"
+    memory: "4Gi"
+
+# Persistent Storage Configuration
+persistence:
+  enabled: true
+  storageClass: "gp2"
+  accessModes:
+    - ReadWriteOnce
+  size: "100Gi"
+
+volumeClaimTemplate:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: "100Gi"
+
+# Elasticsearch Configuration
+esConfig:
+  elasticsearch.yml:
+    cluster.name: mint-clone-logging
+    node.master: true
+    node.data: true
+    node.ingest: true
+    xpack.security.enabled: true
+    xpack.monitoring.enabled: true
+    xpack.security.audit.enabled: true
+    bootstrap.memory_lock: true
+    indices.lifecycle.history_retention_period: "365d"
+    indices.recovery.max_bytes_per_sec: "50mb"
+    search.max_buckets: 100000
+    thread_pool.write.queue_size: 1000
+
+# Environment Variables
+extraEnvs:
+  - name: ES_JAVA_OPTS
+    value: "-Xms2g -Xmx2g"
+  - name: ELASTIC_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: elasticsearch-credentials
+        key: password
+
+# Service Configuration
+service:
+  type: ClusterIP
+  ports:
+    restAPI: 9200
+    transport: 9300
+
+# Ingress Configuration
+ingress:
+  enabled: false
+
+# Security Context
+securityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+
+# Update Strategy
+updateStrategy:
+  type: RollingUpdate
+
+# Metrics Configuration
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: "30s"
+
+# Health Checks
+readinessProbe:
+  initialDelaySeconds: 90
+  periodSeconds: 20
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3
+
+livenessProbe:
+  initialDelaySeconds: 120
+  periodSeconds: 30
+  timeoutSeconds: 5
+  successThreshold: 1
+  failureThreshold: 3

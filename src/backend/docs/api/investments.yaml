@@ -1,0 +1,399 @@
+openapi: 3.0.3
+info:
+  title: Investment Portfolio Management API
+  description: |
+    API specification for managing investment portfolios with comprehensive tracking,
+    analytics, and performance monitoring capabilities.
+  version: 1.0.0
+  contact:
+    name: Development Team
+    email: dev-team@mintclone.com
+
+servers:
+  - url: /api/v1
+    description: Production API server
+  - url: /api/v1/staging
+    description: Staging API server
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Investments
+    description: Investment portfolio management endpoints
+  - name: Analytics
+    description: Investment performance and analytics endpoints
+
+paths:
+  /investments:
+    post:
+      tags:
+        - Investments
+      summary: Create new investment
+      description: Add a new investment to user's portfolio with validation
+      operationId: createInvestment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvestmentRequest'
+      responses:
+        '201':
+          description: Investment created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Investment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+    
+    get:
+      tags:
+        - Investments
+      summary: Get investment portfolio
+      description: Retrieve user's complete investment portfolio with metrics
+      operationId: getPortfolio
+      parameters:
+        - name: timeRange
+          in: query
+          description: Time range for performance metrics
+          schema:
+            type: string
+            enum: [1D, 1W, 1M, 3M, 6M, 1Y, YTD, ALL]
+            default: 1M
+        - name: includeMetrics
+          in: query
+          description: Include detailed performance metrics
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Portfolio retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Portfolio'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /investments/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Investment ID
+    
+    get:
+      tags:
+        - Investments
+      summary: Get investment details
+      description: Retrieve detailed information about a specific investment
+      operationId: getInvestment
+      responses:
+        '200':
+          description: Investment details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Investment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+  /investments/{id}/metrics:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Investment ID
+    
+    get:
+      tags:
+        - Analytics
+      summary: Get investment metrics
+      description: Retrieve comprehensive performance metrics for an investment
+      operationId: getInvestmentMetrics
+      parameters:
+        - name: metrics
+          in: query
+          description: Specific metrics to include
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [return, risk, alpha, beta, sharpe]
+          style: form
+          explode: false
+      responses:
+        '200':
+          description: Investment metrics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InvestmentMetrics'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/ServerError'
+
+components:
+  schemas:
+    CreateInvestmentRequest:
+      type: object
+      required:
+        - type
+        - symbol
+        - shares
+        - purchasePrice
+      properties:
+        type:
+          $ref: '#/components/schemas/InvestmentType'
+        symbol:
+          type: string
+          description: Investment symbol/ticker
+          example: "AAPL"
+        shares:
+          type: number
+          format: float
+          minimum: 0
+          example: 10.5
+        purchasePrice:
+          type: number
+          format: float
+          minimum: 0
+          example: 150.75
+        purchaseDate:
+          type: string
+          format: date-time
+        notes:
+          type: string
+          maxLength: 500
+        tags:
+          type: array
+          items:
+            type: string
+
+    Investment:
+      type: object
+      required:
+        - id
+        - userId
+        - type
+        - symbol
+        - shares
+        - purchasePrice
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        type:
+          $ref: '#/components/schemas/InvestmentType'
+        symbol:
+          type: string
+        shares:
+          type: number
+          format: float
+        purchasePrice:
+          type: number
+          format: float
+        currentPrice:
+          type: number
+          format: float
+        purchaseDate:
+          type: string
+          format: date-time
+        currentValue:
+          type: number
+          format: float
+        returnPercentage:
+          type: number
+          format: float
+        metrics:
+          $ref: '#/components/schemas/InvestmentMetrics'
+
+    InvestmentType:
+      type: string
+      enum:
+        - STOCK
+        - BOND
+        - MUTUAL_FUND
+        - ETF
+
+    Portfolio:
+      type: object
+      properties:
+        userId:
+          type: string
+          format: uuid
+        totalValue:
+          type: number
+          format: float
+        investments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Investment'
+        allocation:
+          $ref: '#/components/schemas/Allocation'
+        performance:
+          $ref: '#/components/schemas/Performance'
+        lastUpdated:
+          type: string
+          format: date-time
+
+    Allocation:
+      type: object
+      properties:
+        stocks:
+          type: number
+          format: float
+        bonds:
+          type: number
+          format: float
+        mutualFunds:
+          type: number
+          format: float
+        etfs:
+          type: number
+          format: float
+
+    Performance:
+      type: object
+      properties:
+        totalReturn:
+          type: number
+          format: float
+        dailyReturn:
+          type: number
+          format: float
+        weeklyReturn:
+          type: number
+          format: float
+        monthlyReturn:
+          type: number
+          format: float
+        yearlyReturn:
+          type: number
+          format: float
+        riskLevel:
+          type: string
+          enum: [LOW, MODERATE, HIGH, AGGRESSIVE]
+        volatility:
+          type: number
+          format: float
+
+    InvestmentMetrics:
+      type: object
+      properties:
+        alpha:
+          type: number
+          format: float
+        beta:
+          type: number
+          format: float
+        sharpeRatio:
+          type: number
+          format: float
+        volatility:
+          type: number
+          format: float
+        riskAdjustedReturn:
+          type: number
+          format: float
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Error:
+      type: object
+      required:
+        - message
+        - statusCode
+        - errorCode
+        - timestamp
+      properties:
+        message:
+          type: string
+        statusCode:
+          type: integer
+        errorCode:
+          type: integer
+        timestamp:
+          type: string
+          format: date-time
+        path:
+          type: string
+        details:
+          type: object
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

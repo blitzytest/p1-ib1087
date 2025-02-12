@@ -1,0 +1,85 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mint-clone-config
+  namespace: mint-clone
+  labels:
+    app: mint-clone
+    component: config
+data:
+  # Service endpoints configuration for inter-service communication
+  service-endpoints.json: |
+    {
+      "auth-service": "http://auth-service:3000",
+      "account-service": "http://account-service:3000",
+      "transaction-service": "http://transaction-service:3000",
+      "budget-service": "http://budget-service:3000",
+      "investment-service": "http://investment-service:3000"
+    }
+
+  # API Gateway configuration including rate limits, CORS, and timeouts
+  api-config.json: |
+    {
+      "rateLimits": {
+        "authentication": {
+          "rate": 5,
+          "window": "1m",
+          "burst": 0
+        },
+        "accountOperations": {
+          "rate": 30,
+          "window": "1m",
+          "burst": 5
+        },
+        "transactions": {
+          "rate": 100,
+          "window": "1m",
+          "burst": 20
+        },
+        "investmentData": {
+          "rate": 50,
+          "window": "1m",
+          "burst": 10
+        },
+        "budgetUpdates": {
+          "rate": 30,
+          "window": "1m",
+          "burst": 5
+        }
+      },
+      "cors": {
+        "allowedOrigins": ["https://*.mintclone.com"],
+        "allowedMethods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allowedHeaders": ["Content-Type", "Authorization", "X-Request-ID"],
+        "exposedHeaders": ["X-Rate-Limit-Remaining", "X-Rate-Limit-Reset"],
+        "maxAge": 86400,
+        "allowCredentials": true
+      },
+      "timeout": {
+        "read": "30s",
+        "write": "30s",
+        "idle": "60s",
+        "keepAlive": "30s"
+      }
+    }
+
+  # Logging configuration for all services
+  logger-config.json: |
+    {
+      "level": "info",
+      "format": "json",
+      "outputs": ["stdout", "/var/log/app/service.log"],
+      "retention": "30d",
+      "maxSize": "100MB",
+      "maxFiles": 10,
+      "compress": true,
+      "fields": {
+        "service": "${SERVICE_NAME}",
+        "environment": "${ENV}",
+        "version": "${VERSION}"
+      },
+      "sampling": {
+        "initial": 1,
+        "thereafter": 100
+      }
+    }
