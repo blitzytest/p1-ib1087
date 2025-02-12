@@ -1,0 +1,366 @@
+openapi: 3.0.3
+info:
+  title: Budget Service API
+  description: |
+    REST API for managing personal budgets and expense tracking.
+    Provides endpoints for creating, retrieving, updating and managing budget allocations.
+  version: 1.0.0
+  contact:
+    name: Mint Clone Development Team
+    email: dev-team@mintclone.com
+
+servers:
+  - url: https://api.mintclone.com/v1
+    description: Production server
+  - url: https://staging-api.mintclone.com/v1
+    description: Staging server
+  - url: http://localhost:3000/v1
+    description: Development server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /budgets:
+    post:
+      summary: Create a new budget
+      description: Creates a new budget allocation for a specific category and period
+      operationId: createBudget
+      tags:
+        - budgets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBudgetRequest'
+            example:
+              userId: "user123"
+              category: "Groceries"
+              amount: 600.00
+              period: "MONTHLY"
+              alertThreshold: 80
+      responses:
+        '201':
+          description: Budget created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    get:
+      summary: Get all budgets for a user
+      description: Retrieves all budget allocations for the specified user with pagination
+      operationId: getUserBudgets
+      tags:
+        - budgets
+      parameters:
+        - name: userId
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Unique identifier of the user
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [MONTHLY, QUARTERLY, YEARLY]
+          description: Optional filter by budget period
+        - name: isActive
+          in: query
+          schema:
+            type: boolean
+          description: Optional filter for active/inactive budgets
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of items per page
+      responses:
+        '200':
+          description: List of budgets retrieved successfully
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: Total number of budgets
+            X-Page-Count:
+              schema:
+                type: integer
+              description: Total number of pages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Budget'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /budgets/{budgetId}:
+    parameters:
+      - name: budgetId
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Unique identifier of the budget
+    
+    get:
+      summary: Get a specific budget
+      description: Retrieves detailed information about a specific budget
+      operationId: getBudget
+      tags:
+        - budgets
+      responses:
+        '200':
+          description: Budget retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    put:
+      summary: Update a budget
+      description: Updates an existing budget's details
+      operationId: updateBudget
+      tags:
+        - budgets
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBudgetRequest'
+      responses:
+        '200':
+          description: Budget updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Budget'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+    delete:
+      summary: Delete a budget
+      description: Deactivates an existing budget
+      operationId: deleteBudget
+      tags:
+        - budgets
+      responses:
+        '204':
+          description: Budget deleted successfully
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  schemas:
+    CreateBudgetRequest:
+      type: object
+      required:
+        - userId
+        - category
+        - amount
+        - period
+      properties:
+        userId:
+          type: string
+          description: Unique identifier of the user
+        category:
+          type: string
+          description: Budget category name
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          description: Budget amount allocation
+        period:
+          type: string
+          enum: [MONTHLY, QUARTERLY, YEARLY]
+          description: Budget tracking period
+        alertThreshold:
+          type: number
+          minimum: 0
+          maximum: 100
+          default: 80
+          description: Percentage threshold for budget alerts
+
+    UpdateBudgetRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+          format: double
+          minimum: 0
+          description: Updated budget amount
+        alertThreshold:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Updated alert threshold percentage
+        isActive:
+          type: boolean
+          description: Budget active status
+
+    Budget:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier of the budget
+        userId:
+          type: string
+          description: User who owns the budget
+        category:
+          type: string
+          description: Budget category name
+        amount:
+          type: number
+          format: double
+          description: Allocated budget amount
+        spent:
+          type: number
+          format: double
+          description: Amount spent in current period
+        period:
+          type: string
+          enum: [MONTHLY, QUARTERLY, YEARLY]
+          description: Budget tracking period
+        alertThreshold:
+          type: number
+          description: Alert threshold percentage
+        lastAlertSentAt:
+          type: string
+          format: date-time
+          description: Timestamp of last alert sent
+        isActive:
+          type: boolean
+          description: Whether the budget is active
+        createdAt:
+          type: string
+          format: date-time
+          description: Budget creation timestamp
+        updatedAt:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication required or invalid credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Requested resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        X-RateLimit-Limit:
+          schema:
+            type: integer
+          description: Rate limit ceiling
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+          description: Remaining requests
+        X-RateLimit-Reset:
+          schema:
+            type: integer
+          description: Time until limit reset
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    Error:
+      type: object
+      required:
+        - message
+        - code
+      properties:
+        message:
+          type: string
+          description: Error message
+        code:
+          type: string
+          description: Error code
+        details:
+          type: object
+          description: Additional error details
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token authentication
+
+tags:
+  - name: budgets
+    description: Budget management operations
