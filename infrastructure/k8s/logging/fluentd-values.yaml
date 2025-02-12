@@ -1,0 +1,127 @@
+image:
+  repository: fluent/fluentd-kubernetes-daemonset
+  tag: v1.15-debian-elasticsearch7-1
+  pullPolicy: IfNotPresent
+
+resources:
+  limits:
+    memory: 1Gi
+    cpu: 1000m
+  requests:
+    memory: 512Mi
+    cpu: 500m
+
+persistence:
+  enabled: true
+  storageClass: gp2
+  accessModes:
+    - ReadWriteOnce
+  size: 20Gi
+  annotations:
+    backup.velero.io/backup-volumes: fluentd-buffer
+
+env:
+  - name: FLUENTD_CONF
+    value: fluent.conf
+  - name: FLUENT_ELASTICSEARCH_HOST
+    value: elasticsearch-master
+  - name: FLUENT_ELASTICSEARCH_PORT
+    value: "9200"
+  - name: FLUENT_ELASTICSEARCH_SCHEME
+    value: https
+  - name: FLUENT_ELASTICSEARCH_SSL_VERIFY
+    value: "true"
+  - name: FLUENT_ELASTICSEARCH_USER
+    valueFrom:
+      secretKeyRef:
+        name: elasticsearch-credentials
+        key: username
+  - name: FLUENT_ELASTICSEARCH_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: elasticsearch-credentials
+        key: password
+
+configMapConfigs:
+  - name: fluentd-config
+    mountPath: /fluentd/etc
+    subPath: fluent.conf
+
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::ACCOUNT_ID:role/fluentd-service-role
+  name: fluentd
+
+rbac:
+  create: true
+  rules:
+    - apiGroups: [""]
+      resources: ["pods", "namespaces"]
+      verbs: ["get", "list", "watch"]
+
+tolerations:
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule
+  - key: node.kubernetes.io/disk-pressure
+    operator: Exists
+    effect: NoSchedule
+
+updateStrategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxUnavailable: 1
+
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    scrapeTimeout: 25s
+    labels:
+      release: prometheus
+  service:
+    port: 24231
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "24231"
+
+podSecurityContext:
+  fsGroup: 1000
+  runAsUser: 1000
+  runAsNonRoot: true
+
+securityContext:
+  privileged: false
+  runAsUser: 1000
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+    add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+
+# Performance tuning settings
+fluentd:
+  buffer:
+    chunkLimit: 2M
+    queueLimit: 32
+    flushInterval: 30s
+    maxRetryWait: 30s
+    disableRetryLimit: false
+    numThreads: 4
+
+  monitoring:
+    metrics:
+      enabled: true
+      port: 24231
+      bind: 0.0.0.0
+    healthCheck:
+      enabled: true
+      port: 24232
+      bind: 0.0.0.0
