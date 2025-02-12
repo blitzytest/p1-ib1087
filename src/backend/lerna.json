@@ -1,0 +1,37 @@
+{
+  "version": "6.6.1",
+  "npmClient": "npm",
+  "useWorkspaces": true,
+  "packages": [
+    "shared/*",
+    "api-gateway",
+    "auth-service",
+    "account-service",
+    "transaction-service",
+    "budget-service",
+    "investment-service"
+  ],
+  "command": {
+    "bootstrap": {
+      "hoist": true,
+      "npmClientArgs": [
+        "--no-package-lock"
+      ]
+    },
+    "version": {
+      "allowBranch": [
+        "main",
+        "develop"
+      ],
+      "conventionalCommits": true,
+      "message": "chore(release): publish %s",
+      "exact": true
+    },
+    "publish": {
+      "conventionalCommits": true,
+      "message": "chore(release): publish %s",
+      "registry": "https://registry.npmjs.org/",
+      "access": "restricted"
+    }
+  }
+}
