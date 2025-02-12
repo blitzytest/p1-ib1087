@@ -1,0 +1,92 @@
+# Helm values for ingress-nginx chart version 4.7.1
+# Configures NGINX ingress controller for Mint Clone application
+
+nameOverride: "mint-ingress-nginx"
+fullnameOverride: "mint-ingress-nginx"
+
+controller:
+  name: controller
+  
+  image:
+    repository: registry.k8s.io/ingress-nginx/controller
+    tag: v1.8.1
+    pullPolicy: IfNotPresent
+  
+  replicaCount: 2
+  minAvailable: 1
+  
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+  
+  service:
+    enabled: true
+    type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: nlb
+      service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+      service.beta.kubernetes.io/aws-load-balancer-ssl-cert: ${ACM_CERTIFICATE_ARN}
+      service.beta.kubernetes.io/aws-load-balancer-ssl-ports: "443"
+    ports:
+      http: 80
+      https: 443
+  
+  config:
+    # General settings
+    use-forwarded-headers: "true"
+    proxy-body-size: "8m"
+    proxy-read-timeout: "60"
+    proxy-send-timeout: "60"
+    
+    # SSL/TLS configuration
+    ssl-protocols: "TLSv1.3"
+    ssl-ciphers: "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384"
+    enable-ocsp: "true"
+    hsts: "true"
+    hsts-include-subdomains: "true"
+    hsts-max-age: "31536000"
+  
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+      namespace: monitoring
+      interval: "30s"
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+defaultBackend:
+  enabled: true
+  replicaCount: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 100m
+      memory: 256Mi
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  annotations:
+    eks.amazonaws.com/role-arn: ${INGRESS_CONTROLLER_IAM_ROLE}
+
+podSecurityContext:
+  fsGroup: 101
+
+containerSecurityContext:
+  runAsUser: 101
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
