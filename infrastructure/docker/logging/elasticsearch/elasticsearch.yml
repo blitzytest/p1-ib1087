@@ -1,0 +1,115 @@
+# Mint Clone Elasticsearch Configuration
+# Version: 8.0.0
+# Purpose: Core configuration for centralized logging and transaction search
+
+#----------------------
+# Cluster Settings
+#----------------------
+cluster.name: ${ELASTICSEARCH_CLUSTER_NAME}
+node.name: ${ELASTICSEARCH_NODE_NAME}
+node.master: true
+node.data: true
+node.ingest: true
+
+# Disk-based shard allocation settings
+cluster.routing.allocation.disk.threshold_enabled: true
+cluster.routing.allocation.disk.watermark.low: "85%"
+cluster.routing.allocation.disk.watermark.high: "90%"
+cluster.routing.allocation.disk.watermark.flood_stage: "95%"
+
+#----------------------
+# Network Settings
+#----------------------
+network.host: "0.0.0.0"
+http.port: 9200
+transport.port: 9300
+discovery.type: single-node
+
+# CORS settings for Kibana integration
+http.cors.enabled: true
+http.cors.allow-origin: "http://localhost:5601"
+http.max_content_length: "100mb"
+
+#----------------------
+# Path Settings
+#----------------------
+path.data: /usr/share/elasticsearch/data
+path.logs: /usr/share/elasticsearch/logs
+path.repo: /usr/share/elasticsearch/snapshots
+
+#----------------------
+# Memory Settings
+#----------------------
+bootstrap.memory_lock: true
+ES_JAVA_OPTS: "-Xms${ELASTICSEARCH_HEAP_SIZE} -Xmx${ELASTICSEARCH_HEAP_SIZE} -XX:+HeapDumpOnOutOfMemoryError -XX:HeapDumpPath=/usr/share/elasticsearch/logs"
+indices.memory.index_buffer_size: "30%"
+
+#----------------------
+# Security Settings
+#----------------------
+xpack.security.enabled: true
+xpack.security.transport.ssl.enabled: true
+xpack.security.transport.ssl.verification_mode: "certificate"
+xpack.security.transport.ssl.keystore.path: "elastic-certificates.p12"
+
+# Audit logging configuration
+xpack.security.audit.enabled: true
+xpack.security.audit.logfile.events.include: 
+  - "authentication_success"
+  - "authentication_failure"
+  - "access_denied"
+  - "connection_denied"
+
+# Authentication settings
+xpack.security.authc.api_key.enabled: true
+xpack.security.authc.token.enabled: true
+
+#----------------------
+# Index Settings
+#----------------------
+index.number_of_shards: 1
+index.number_of_replicas: 0
+index.refresh_interval: "30s"
+index.lifecycle.name: "logs-policy"
+index.lifecycle.rollover_alias: "logs"
+indices.query.bool.max_clause_count: 4096
+
+#----------------------
+# Monitoring Settings
+#----------------------
+xpack.monitoring.enabled: true
+xpack.monitoring.collection.enabled: true
+xpack.monitoring.collection.interval: "30s"
+xpack.monitoring.history.duration: "7d"
+xpack.monitoring.collection.cluster.stats.timeout: "10s"
+
+#----------------------
+# Thread Pool Settings
+#----------------------
+thread_pool:
+  write:
+    size: 4
+    queue_size: 1000
+  search:
+    size: 4
+    queue_size: 1000
+  get:
+    size: 4
+    queue_size: 1000
+  bulk:
+    size: 4
+    queue_size: 500
+
+#----------------------
+# Performance Settings
+#----------------------
+indices.memory.min_index_buffer_size: "96mb"
+indices.queries.cache.size: "15%"
+indices.fielddata.cache.size: "15%"
+indices.recovery.max_bytes_per_sec: "40mb"
+
+#----------------------
+# Bootstrap Settings
+#----------------------
+bootstrap.system_call_filter: false
+bootstrap.ctrlhandler: true
