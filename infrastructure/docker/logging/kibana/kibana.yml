@@ -1,0 +1,74 @@
+# Kibana Configuration for Mint Clone Application
+# Version: 8.0.0
+
+#----------------------
+# Server Settings
+#----------------------
+server.name: ${KIBANA_SERVER_NAME}
+server.host: "0.0.0.0"
+server.port: 5601
+server.publicBaseUrl: ${KIBANA_PUBLIC_URL}
+server.maxPayloadBytes: 1048576
+server.compression: true
+server.keepaliveTimeout: 120000
+
+#----------------------
+# Elasticsearch Settings
+#----------------------
+elasticsearch.hosts: ["${ELASTICSEARCH_HOSTS}"]
+elasticsearch.username: ${ELASTICSEARCH_USERNAME}
+elasticsearch.password: ${ELASTICSEARCH_PASSWORD}
+elasticsearch.requestTimeout: 30000
+elasticsearch.shardTimeout: 30000
+elasticsearch.pingTimeout: 3000
+elasticsearch.requestHeadersWhitelist: ["authorization", "security-tenant"]
+elasticsearch.customHeaders: {}
+
+#----------------------
+# Security Settings
+#----------------------
+xpack.security.enabled: true
+xpack.security.encryptionKey: ${ENCRYPTION_KEY}
+xpack.security.session.idleTimeout: "1h"
+xpack.security.session.lifespan: "24h"
+
+# Audit logging configuration
+xpack.security.audit.enabled: true
+xpack.security.audit.logLevel: "info"
+xpack.security.audit.appender.type: "file"
+xpack.security.audit.appender.path: "/var/log/kibana/audit.log"
+
+#----------------------
+# Monitoring Settings
+#----------------------
+xpack.monitoring.enabled: true
+xpack.monitoring.ui.container.elasticsearch.enabled: true
+xpack.monitoring.collection.enabled: true
+xpack.monitoring.collection.interval: "10s"
+xpack.monitoring.min_interval_seconds: 10
+
+#----------------------
+# Logging Settings
+#----------------------
+logging.root.level: "info"
+
+# File logging configuration
+logging.appenders.file.type: "file"
+logging.appenders.file.fileName: "/var/log/kibana/kibana.log"
+logging.appenders.file.layout.type: "json"
+logging.appenders.file.layout.highlight: false
+logging.appenders.file.layout.json.type: "json"
+
+# Rolling file configuration
+logging.appenders.rolling.type: "rolling-file"
+logging.appenders.rolling.fileName: "/var/log/kibana/rolling.log"
+logging.appenders.rolling.policy.type: "time-based"
+logging.appenders.rolling.policy.interval: "1d"
+logging.appenders.rolling.policy.modulate: true
+
+#----------------------
+# Telemetry Settings
+#----------------------
+telemetry.enabled: false
+telemetry.allowChangingOptInStatus: false
+telemetry.optIn: false
