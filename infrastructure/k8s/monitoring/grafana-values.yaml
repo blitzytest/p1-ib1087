@@ -1,0 +1,133 @@
+image:
+  repository: grafana/grafana
+  tag: 9.5.0
+  pullPolicy: IfNotPresent
+
+replicaCount: 2
+
+persistence:
+  enabled: true
+  size: 10Gi
+  storageClassName: gp2
+  annotations:
+    backup.velero.io/backup-volumes: storage
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+  hosts:
+    - host: grafana.mint-clone.com
+      paths:
+        - /
+  tls:
+    - secretName: grafana-tls
+      hosts:
+        - grafana.mint-clone.com
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+datasources:
+  datasources.yaml:
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        url: http://prometheus-server:9090
+        access: proxy
+        isDefault: true
+        jsonData:
+          timeInterval: 15s
+          queryTimeout: 30s
+      - name: CloudWatch
+        type: cloudwatch
+        access: proxy
+        jsonData:
+          authType: default
+          defaultRegion: us-east-1
+          assumeRoleArn: arn:aws:iam::123456789012:role/GrafanaCloudWatchRole
+      - name: X-Ray
+        type: grafana-x-ray-datasource
+        access: proxy
+        jsonData:
+          authType: default
+          defaultRegion: us-east-1
+          tracingServiceName: mint-clone
+
+dashboardProviders:
+  dashboardproviders.yaml:
+    apiVersion: 1
+    providers:
+      - name: default
+        orgId: 1
+        folder: ''
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /var/lib/grafana/dashboards
+
+dashboards:
+  default:
+    services:
+      json:
+        annotations:
+          list:
+            - name: Deployments
+              datasource: Prometheus
+              expr: changes(kube_deployment_status_replicas_available[1m]) > 0
+        panels:
+          - title: API Gateway Response Times
+            targets:
+              - expr: rate(http_request_duration_seconds_sum{service="api-gateway"}[5m])
+                legendFormat: API Gateway
+                alert:
+                  name: APIGatewayLatency
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params: [0.1]
+          - title: Authentication Service Performance
+            targets:
+              - expr: rate(auth_request_duration_seconds_sum[5m])
+                legendFormat: Auth Service
+                alert:
+                  name: AuthLatency
+                  conditions:
+                    - evaluator:
+                        type: gt
+                        params: [0.5]
+
+serviceMonitor:
+  enabled: true
+  interval: 15s
+  scrapeTimeout: 10s
+  labels:
+    release: prometheus
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "3000"
+  prometheus.io/path: /metrics
+
+securityContext:
+  runAsUser: 472
+  runAsGroup: 472
+  fsGroup: 472
+
+networkPolicy:
+  enabled: true
+  ingress:
+    from:
+      - podSelector:
+          matchLabels:
+            app: prometheus
