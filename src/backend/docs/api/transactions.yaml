@@ -1,0 +1,320 @@
+openapi: 3.0.3
+info:
+  title: Mint Clone Transactions API
+  description: API specification for transaction management, filtering, and categorization operations
+  version: 1.0.0
+  contact:
+    name: Development Team
+    email: dev-team@mintclone.com
+
+servers:
+  - url: https://api.mintclone.com/v1
+    description: Production server
+  - url: https://staging-api.mintclone.com/v1
+    description: Staging server
+
+security:
+  - bearerAuth: []
+
+paths:
+  /transactions/{id}:
+    get:
+      summary: Retrieve a transaction by ID
+      description: Returns detailed information about a specific transaction
+      operationId: getTransactionById
+      tags:
+        - Transactions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Transaction unique identifier
+      responses:
+        '200':
+          description: Transaction details retrieved successfully
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              description: Request limit per minute (100)
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Remaining requests in the time window
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    
+    put:
+      summary: Update a transaction
+      description: Update transaction details including category and description
+      operationId: updateTransaction
+      tags:
+        - Transactions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransactionUpdate'
+      responses:
+        '200':
+          description: Transaction updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /accounts/{accountId}/transactions:
+    get:
+      summary: List transactions for an account
+      description: Returns paginated list of transactions with optional filtering
+      operationId: listAccountTransactions
+      tags:
+        - Transactions
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [FOOD_DINING, SHOPPING, TRANSPORTATION, HOUSING, UTILITIES, OTHER]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        '200':
+          description: List of transactions retrieved successfully
+          headers:
+            X-Total-Count:
+              schema:
+                type: integer
+              description: Total number of transactions
+            X-Page-Count:
+              schema:
+                type: integer
+              description: Total number of pages
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransactionList'
+
+  /transactions/{id}/categorize:
+    post:
+      summary: Update transaction category
+      description: Update the category of a transaction with automated categorization
+      operationId: categorizeTransaction
+      tags:
+        - Transactions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryUpdate'
+      responses:
+        '200':
+          description: Transaction category updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transaction'
+
+components:
+  schemas:
+    Transaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        accountId:
+          type: string
+          format: uuid
+        plaidTransactionId:
+          type: string
+        amount:
+          type: number
+          format: double
+        category:
+          type: string
+          enum: [FOOD_DINING, SHOPPING, TRANSPORTATION, HOUSING, UTILITIES, OTHER]
+        subcategory:
+          type: string
+        description:
+          type: string
+        merchant:
+          type: string
+        date:
+          type: string
+          format: date-time
+        pending:
+          type: boolean
+        location:
+          $ref: '#/components/schemas/Location'
+      required:
+        - id
+        - accountId
+        - amount
+        - category
+        - date
+
+    TransactionUpdate:
+      type: object
+      properties:
+        category:
+          type: string
+          enum: [FOOD_DINING, SHOPPING, TRANSPORTATION, HOUSING, UTILITIES, OTHER]
+        description:
+          type: string
+        merchant:
+          type: string
+      minProperties: 1
+
+    CategoryUpdate:
+      type: object
+      properties:
+        category:
+          type: string
+          enum: [FOOD_DINING, SHOPPING, TRANSPORTATION, HOUSING, UTILITIES, OTHER]
+      required:
+        - category
+
+    Location:
+      type: object
+      properties:
+        address:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+          minLength: 2
+          maxLength: 2
+        zipCode:
+          type: string
+          pattern: ^\d{5}(-\d{4})?$
+
+    TransactionList:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Transaction'
+        pagination:
+          type: object
+          properties:
+            total:
+              type: integer
+            pages:
+              type: integer
+            current:
+              type: integer
+            limit:
+              type: integer
+          required:
+            - total
+            - pages
+            - current
+            - limit
+      required:
+        - data
+        - pagination
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        details:
+          type: object
+      required:
+        - code
+        - message
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    Unauthorized:
+      description: Authentication required or invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    
+    NotFound:
+      description: Requested resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token authentication
+
+tags:
+  - name: Transactions
+    description: Transaction management operations
