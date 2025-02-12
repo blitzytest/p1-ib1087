@@ -1,0 +1,284 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      },
+      {
+        "datasource": "Prometheus",
+        "enable": true,
+        "expr": "changes(kube_deployment_status_replicas_available[1m]) > 0",
+        "name": "Deployments",
+        "tagKeys": ["service", "namespace"],
+        "titleFormat": "Deployment - {{service}}"
+      },
+      {
+        "datasource": "Prometheus",
+        "enable": true,
+        "expr": "changes(kube_deployment_spec_replicas[1m]) > 0",
+        "name": "Scaling Events",
+        "tagKeys": ["service", "namespace"],
+        "titleFormat": "Scaling - {{service}}"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": "mint-clone-services",
+  "uid": "services-monitoring",
+  "links": [],
+  "panels": [
+    {
+      "title": "Service Response Times",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(http_request_duration_seconds_sum{service=~\"$service\"}[$interval]) / rate(http_request_duration_seconds_count{service=~\"$service\"}[$interval])",
+          "legendFormat": "{{service}}",
+          "interval": "$interval"
+        }
+      ],
+      "thresholds": [
+        {
+          "value": 0.5,
+          "colorMode": "warning",
+          "op": "gt",
+          "fill": true,
+          "line": true
+        },
+        {
+          "value": 1.0,
+          "colorMode": "critical",
+          "op": "gt",
+          "fill": true,
+          "line": true
+        }
+      ],
+      "alert": {
+        "name": "High Response Time",
+        "message": "Service response time is above threshold",
+        "conditions": [
+          {
+            "type": "query",
+            "query": { "params": ["A", "5m", "now"] },
+            "reducer": { "type": "avg" },
+            "evaluator": { "type": "gt", "params": [1] }
+          }
+        ]
+      }
+    },
+    {
+      "title": "Request Rate",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{service=~\"$service\"}[$interval])) by (service)",
+          "legendFormat": "{{service}}",
+          "interval": "$interval"
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "reqps",
+          "label": "Requests/Second"
+        }
+      ]
+    },
+    {
+      "title": "Error Rate",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 3,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "sum(rate(http_requests_total{service=~\"$service\",status=~\"5..\"}[$interval])) by (service) / sum(rate(http_requests_total{service=~\"$service\"}[$interval])) by (service)",
+          "legendFormat": "{{service}}",
+          "interval": "$interval"
+        }
+      ],
+      "thresholds": [
+        {
+          "value": 0.01,
+          "colorMode": "warning",
+          "op": "gt",
+          "fill": true,
+          "line": true
+        },
+        {
+          "value": 0.05,
+          "colorMode": "critical",
+          "op": "gt",
+          "fill": true,
+          "line": true
+        }
+      ],
+      "alert": {
+        "name": "High Error Rate",
+        "message": "Service error rate is above threshold",
+        "conditions": [
+          {
+            "type": "query",
+            "query": { "params": ["A", "5m", "now"] },
+            "reducer": { "type": "avg" },
+            "evaluator": { "type": "gt", "params": [0.05] }
+          }
+        ]
+      }
+    },
+    {
+      "title": "Memory Usage",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 4,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "process_resident_memory_bytes{service=~\"$service\"} / 1024 / 1024",
+          "legendFormat": "{{service}} MB",
+          "interval": "$interval"
+        }
+      ],
+      "thresholds": [
+        {
+          "value": 1024,
+          "colorMode": "warning",
+          "op": "gt",
+          "fill": true,
+          "line": true
+        },
+        {
+          "value": 2048,
+          "colorMode": "critical",
+          "op": "gt",
+          "fill": true,
+          "line": true
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "mbytes",
+          "label": "Memory Usage"
+        }
+      ]
+    },
+    {
+      "title": "CPU Usage",
+      "type": "graph",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "id": 5,
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(process_cpu_seconds_total{service=~\"$service\"}[$interval]) * 100",
+          "legendFormat": "{{service}} %",
+          "interval": "$interval"
+        }
+      ],
+      "thresholds": [
+        {
+          "value": 70,
+          "colorMode": "warning",
+          "op": "gt",
+          "fill": true,
+          "line": true
+        },
+        {
+          "value": 85,
+          "colorMode": "critical",
+          "op": "gt",
+          "fill": true,
+          "line": true
+        }
+      ],
+      "yaxes": [
+        {
+          "format": "percent",
+          "label": "CPU Usage"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(service_name)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "sort": 1
+      },
+      {
+        "name": "instance",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(instance)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "sort": 1
+      },
+      {
+        "name": "interval",
+        "type": "interval",
+        "query": "1m,5m,10m,30m,1h,6h,12h,1d",
+        "current": {
+          "selected": true,
+          "text": "5m",
+          "value": "5m"
+        }
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m",
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "2h",
+      "1d"
+    ],
+    "time_options": [
+      "5m",
+      "15m",
+      "1h",
+      "6h",
+      "12h",
+      "24h",
+      "2d",
+      "7d",
+      "30d"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Mint Clone Services Dashboard",
+  "version": 1,
+  "refresh": "10s",
+  "schemaVersion": 36,
+  "tags": ["services", "monitoring", "performance", "health"]
+}
