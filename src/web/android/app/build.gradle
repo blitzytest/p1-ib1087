@@ -1,0 +1,88 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.mintclone'
+    compileSdkVersion 33
+    buildToolsVersion "33.0.0"
+
+    defaultConfig {
+        applicationId "com.mintclone"
+        minSdkVersion 21
+        targetSdkVersion 33
+        versionCode 1
+        versionName "1.0.0"
+    }
+
+    buildFeatures {
+        dataBinding true
+        viewBinding true
+        buildConfig true
+    }
+
+    signingConfigs {
+        release {
+            storeFile file('release.keystore')
+            storePassword "${KEYSTORE_PASSWORD}"
+            keyAlias "${KEY_ALIAS}"
+            keyPassword "${KEY_PASSWORD}"
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+            minifyEnabled false
+            signingConfig signingConfigs.debug
+        }
+        release {
+            debuggable false
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    packagingOptions {
+        exclude 'META-INF/DEPENDENCIES'
+        exclude 'META-INF/LICENSE'
+        exclude 'META-INF/LICENSE.txt'
+        exclude 'META-INF/NOTICE'
+        exclude 'META-INF/NOTICE.txt'
+        exclude 'META-INF/ASL2.0'
+        exclude 'META-INF/*.kotlin_module'
+    }
+}
+
+dependencies {
+    implementation 'com.facebook.react:react-native:0.71.0'
+    implementation 'org.webkit:android-jsc:+'
+    implementation 'androidx.swiperefreshlayout:swiperefreshlayout:1.1.0'
+    implementation 'androidx.biometric:biometric:1.1.0'
+    implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
+    implementation 'com.plaid.link:sdk-core:10.0.0'
+    implementation 'androidx.security:security-crypto:1.1.0-alpha06'
+    implementation 'com.facebook.react:react-native-gesture-handler:2.9.0'
+    implementation 'com.facebook.react:react-native-reanimated:3.3.0'
+    implementation 'com.facebook.react:react-native-safe-area-context:4.5.0'
+    implementation 'com.facebook.react:react-native-screens:3.20.0'
+    implementation 'com.facebook.react:react-native-svg:13.0.0'
+    implementation 'com.facebook.react:react-native-encrypted-storage:4.0.3'
+    implementation 'com.facebook.react:react-native-biometrics:3.0.1'
+    implementation 'com.facebook.react:react-native-push-notification:8.1.1'
+    implementation 'com.google.firebase:firebase-messaging:16.0.0'
+    implementation 'com.facebook.react:react-native-vector-icons:9.0.0'
+    implementation 'com.facebook.react:react-native-device-info:8.7.1'
+
+    debugImplementation 'com.facebook.flipper:flipper:0.182.0'
+    debugImplementation 'com.facebook.flipper:flipper-network-plugin:0.182.0'
+    debugImplementation 'com.facebook.soloader:soloader:0.10.5'
+}
+
+apply from: file("../../node_modules/@react-native-community/cli-platform-android/native_modules.gradle"); applyNativeModulesAppBuildGradle(project)
