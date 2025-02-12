@@ -1,0 +1,110 @@
+alertmanager:
+  enabled: true
+  replicaCount: 2
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m" 
+      memory: "512Mi"
+
+  persistence:
+    enabled: true
+    size: "10Gi"
+    storageClass: "gp2"
+
+  config:
+    global:
+      resolve_timeout: "5m"
+      smtp_smarthost: "smtp.aws.com:587"
+      smtp_from: "alerts@mintclone.com"
+      smtp_require_tls: true
+      pagerduty_url: "https://events.pagerduty.com/v2/enqueue"
+
+    route:
+      group_by: ["alertname", "cluster", "service", "severity"]
+      group_wait: "30s"
+      group_interval: "5m"
+      repeat_interval: "4h"
+      receiver: "team-email"
+      routes:
+        - match:
+            severity: "critical"
+            service: "auth-service"
+          receiver: "security-pager"
+          repeat_interval: "30m"
+        - match:
+            severity: "critical"
+          receiver: "team-pager"
+          repeat_interval: "1h"
+        - match:
+            severity: "warning"
+            service: "transaction-service"
+          receiver: "transaction-team"
+          group_wait: "45s"
+
+    receivers:
+      - name: "team-email"
+        email_configs:
+          - to: "team@mintclone.com"
+            send_resolved: true
+            html: '{{ template "email.html" . }}'
+
+      - name: "team-pager"
+        email_configs:
+          - to: "oncall@mintclone.com"
+            send_resolved: true
+            html: '{{ template "critical.html" . }}'
+        pagerduty_configs:
+          - routing_key: "${PAGERDUTY_KEY}"
+            send_resolved: true
+            severity: '{{ .CommonLabels.severity }}'
+            class: '{{ .CommonLabels.service }}'
+
+      - name: "security-pager"
+        email_configs:
+          - to: "security@mintclone.com"
+            send_resolved: true
+            html: '{{ template "security.html" . }}'
+        pagerduty_configs:
+          - routing_key: "${SECURITY_PAGERDUTY_KEY}"
+            send_resolved: true
+            severity: "critical"
+            class: "security"
+
+      - name: "transaction-team"
+        email_configs:
+          - to: "transactions@mintclone.com"
+            send_resolved: true
+            html: '{{ template "transaction.html" . }}'
+
+    inhibit_rules:
+      - source_match:
+          severity: "critical"
+        target_match:
+          severity: "warning"
+        equal: ["alertname", "cluster", "service"]
+      - source_match:
+          severity: "warning"
+        target_match:
+          severity: "info"
+        equal: ["alertname", "cluster", "service"]
+
+  ingress:
+    enabled: true
+    annotations:
+      kubernetes.io/ingress.class: "nginx"
+      cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
+    hosts:
+      - "alertmanager.mint-clone.com"
+    tls:
+      - secretName: "alertmanager-tls"
+        hosts:
+          - "alertmanager.mint-clone.com"
